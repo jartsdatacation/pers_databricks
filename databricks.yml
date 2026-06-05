@@ -1,0 +1,13 @@
+# This is a Databricks asset bundle definition for pers_databricks.
+# The Databricks extension requires databricks.yml configuration file.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+
+bundle:
+  name: pers_databricks
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-4a1c4a04-741b.cloud.databricks.com/?o=7474656153926720

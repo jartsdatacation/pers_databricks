@@ -1,0 +1,25 @@
+{
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports.ruff": "explicit"
+        },
+    },
+    "notebook.defaultFormatter": "charliermarsh.ruff",
+    "notebook.formatOnSave.enabled": true,
+    "notebook.codeActionsOnSave": {
+        "source.organizeImports.ruff": "explicit"
+    },
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "terminal.integrated.env.linux": {
+        "VIRTUAL_ENV": ""
+    },
+    "terminal.integrated.env.windows": {
+        "VIRTUAL_ENV": ""
+    },
+    "terminal.integrated.env.osx": {
+        "VIRTUAL_ENV": ""
+    }
+}

@@ -288,6 +288,56 @@ def write_delta_replace_partitions(
     )
 
 
+def _build_log_record(
+    *,
+    run_id: str,
+    table_id: int,
+    started_at: datetime,
+    finished_at: datetime,
+    from_date: Optional[date],
+    to_date: Optional[date],
+    is_backfill: bool,
+    result: Optional[dict] = None,
+    error: Optional[Exception] = None,
+    write_mode: str = "overwrite",
+) -> dict:
+    match (result, error):
+        case (dict(), None):
+            return {
+                "run_id": run_id,
+                "table_id": table_id,
+                "status": result["status"],
+                "started_at_utc": started_at,
+                "finished_at_utc": finished_at,
+                "from_date": from_date.isoformat() if from_date else None,
+                "to_date": to_date.isoformat() if to_date else None,
+                "row_count": result["row_count"],
+                "partition_count": result["partition_count"],
+                "partition_dates": ",".join(result["partition_dates"]),
+                "is_backfill": is_backfill,
+                "write_mode": result["write_mode"],
+                "write_duration_seconds": result["write_duration_seconds"],
+                "error_message": None,
+            }
+        case _:
+            return {
+                "run_id": run_id,
+                "table_id": table_id,
+                "status": "FAILED",
+                "started_at_utc": started_at,
+                "finished_at_utc": finished_at,
+                "from_date": from_date.isoformat() if from_date else None,
+                "to_date": to_date.isoformat() if to_date else None,
+                "row_count": None,
+                "partition_count": None,
+                "partition_dates": None,
+                "is_backfill": is_backfill,
+                "write_mode": write_mode,
+                "write_duration_seconds": None,
+                "error_message": str(error),
+            }
+
+
 def log_run_event(
     spark: SparkSession,
     log_table: str,
@@ -506,7 +556,9 @@ def backfill(
         # only writes a new Delta commit and does not read existing files.
         is_forced = bool(force_table_ids and table_id in force_table_ids)
         if is_forced:
-            print(f"  [FORCED] Skipping existence check for table {table_id}. Using overwrite.")
+            print(
+                f"  [FORCED] Skipping existence check for table {table_id}. Using overwrite."
+            )
             dates_to_process = list(all_dates)
             effective_write_mode = "overwrite"
         else:
@@ -536,50 +588,42 @@ def backfill(
                 write_mode=effective_write_mode,
             )
             finished_at = datetime.now(timezone.utc)
-
-            log_data = [
-                {
-                    "run_id": run_id,
-                    "table_id": table_id,
-                    "status": result["status"],
-                    "started_at_utc": started_at,
-                    "finished_at_utc": finished_at,
-                    "from_date": from_date.isoformat(),
-                    "to_date": to_date.isoformat(),
-                    "row_count": result["row_count"],
-                    "partition_count": result["partition_count"],
-                    "partition_dates": ",".join(result["partition_dates"]),
-                    "is_backfill": True,
-                    "write_mode": result["write_mode"],
-                    "write_duration_seconds": result["write_duration_seconds"],
-                    "error_message": None,
-                }
-            ]
-            log_run_event(spark, LOG_TABLE, log_data)
+            log_run_event(
+                spark,
+                LOG_TABLE,
+                [
+                    _build_log_record(
+                        run_id=run_id,
+                        table_id=table_id,
+                        started_at=started_at,
+                        finished_at=finished_at,
+                        from_date=from_date,
+                        to_date=to_date,
+                        is_backfill=True,
+                        result=result,
+                    )
+                ],
+            )
 
         except Exception as exc:
             finished_at = datetime.now(timezone.utc)
-
-            log_data = [
-                {
-                    "run_id": run_id,
-                    "table_id": table_id,
-                    "status": "FAILED",
-                    "started_at_utc": started_at,
-                    "finished_at_utc": finished_at,
-                    "from_date": from_date.isoformat(),
-                    "to_date": to_date.isoformat(),
-                    "row_count": None,
-                    "partition_count": None,
-                    "partition_dates": None,
-                    "is_backfill": True,
-                    "write_mode": write_mode,
-                    "write_duration_seconds": None,
-                    "error_message": str(exc),
-                }
-            ]
-            log_run_event(spark, LOG_TABLE, log_data)
-
+            log_run_event(
+                spark,
+                LOG_TABLE,
+                [
+                    _build_log_record(
+                        run_id=run_id,
+                        table_id=table_id,
+                        started_at=started_at,
+                        finished_at=finished_at,
+                        from_date=from_date,
+                        to_date=to_date,
+                        is_backfill=True,
+                        error=exc,
+                        write_mode=effective_write_mode,
+                    )
+                ],
+            )
             print(f"\n[ERROR] table_{table_id} backfill failed: {exc}")
             raise
 
@@ -614,50 +658,42 @@ def run(
                 spark, table_id, from_date, to_date, write_mode=write_mode
             )
             finished_at = datetime.now(timezone.utc)
-
-            log_data = [
-                {
-                    "run_id": run_id,
-                    "table_id": table_id,
-                    "status": result["status"],
-                    "started_at_utc": started_at,
-                    "finished_at_utc": finished_at,
-                    "from_date": from_date.isoformat() if from_date else None,
-                    "to_date": to_date.isoformat() if to_date else None,
-                    "row_count": result["row_count"],
-                    "partition_count": result["partition_count"],
-                    "partition_dates": ",".join(result["partition_dates"]),
-                    "is_backfill": is_backfill,
-                    "write_mode": result["write_mode"],
-                    "write_duration_seconds": result["write_duration_seconds"],
-                    "error_message": None,
-                }
-            ]
-            log_run_event(spark, LOG_TABLE, log_data)
+            log_run_event(
+                spark,
+                LOG_TABLE,
+                [
+                    _build_log_record(
+                        run_id=run_id,
+                        table_id=table_id,
+                        started_at=started_at,
+                        finished_at=finished_at,
+                        from_date=from_date,
+                        to_date=to_date,
+                        is_backfill=is_backfill,
+                        result=result,
+                    )
+                ],
+            )
 
         except Exception as exc:
             finished_at = datetime.now(timezone.utc)
-
-            log_data = [
-                {
-                    "run_id": run_id,
-                    "table_id": table_id,
-                    "status": "FAILED",
-                    "started_at_utc": started_at,
-                    "finished_at_utc": finished_at,
-                    "from_date": from_date.isoformat() if from_date else None,
-                    "to_date": to_date.isoformat() if to_date else None,
-                    "row_count": None,
-                    "partition_count": None,
-                    "partition_dates": None,
-                    "is_backfill": is_backfill,
-                    "write_mode": write_mode,
-                    "write_duration_seconds": None,
-                    "error_message": str(exc),
-                }
-            ]
-            log_run_event(spark, LOG_TABLE, log_data)
-
+            log_run_event(
+                spark,
+                LOG_TABLE,
+                [
+                    _build_log_record(
+                        run_id=run_id,
+                        table_id=table_id,
+                        started_at=started_at,
+                        finished_at=finished_at,
+                        from_date=from_date,
+                        to_date=to_date,
+                        is_backfill=is_backfill,
+                        error=exc,
+                        write_mode=write_mode,
+                    )
+                ],
+            )
             print(f"\n[ERROR] table_{table_id} failed: {exc}")
             raise
 

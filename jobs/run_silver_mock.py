@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from databricks.connect import DatabricksSession
 
@@ -10,9 +10,13 @@ spark.conf.set("spark.sql.session.timeZone", "Europe/Amsterdam")
 
 default_table_ids = get_default_table_ids(spark)
 
+# Process yesterday so today's data has fully arrived before ingestion.
+yesterday = date.today() - timedelta(days=1)
+
 run(
     spark=spark,
     table_ids=default_table_ids,
-    from_date=date(2026, 6, 5),
-    to_date=date(2026, 6, 9),
+    from_date=yesterday,
+    to_date=date.today(),
+    write_mode="overwrite",
 )

@@ -1,4 +1,5 @@
-from datetime import date, timedelta, datetime
+# pers_databricks/cli/run_silver_mock.py
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 import typer
@@ -15,6 +16,8 @@ app = typer.Typer(help="Run the silver mock pipeline.")
 def _parse_date(value: Optional[str]) -> Optional[date]:
     if value is None:
         return None
+    if not isinstance(value, str):
+        raise TypeError(f"Expected string date, got {type(value).__name__}: {value!r}")
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
@@ -24,45 +27,44 @@ def _build_spark():
     return spark
 
 
-@app.command()
-def main(
-    from_date: Optional[str] = typer.Option(
-        None, help="Start date in YYYY-MM-DD format."
-    ),
-    to_date: Optional[str] = typer.Option(
-        None, help="End date in YYYY-MM-DD format."
-    ),
-    write_mode: str = typer.Option(
-        "overwrite",
-        help="Write mode: overwrite or merge.",
-        case_sensitive=False,
-    ),
-    table_ids: Optional[list[int]] = typer.Option(
-        None,
-        "--table-id",
-        "-t",
-        help="Table ID to process. Can be supplied multiple times.",
-    ),
+def run_pipeline(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    write_mode: str = "overwrite",
+    table_ids: Optional[list[int]] = None,
 ):
     spark = _build_spark()
+    ids = table_ids or get_default_table_ids(spark)
 
-    default_table_ids = table_ids or get_default_table_ids(spark)
-
-    # Process yesterday so today's data has fully arrived before ingestion.
     if from_date is None and to_date is None:
-        yesterday = date.today() - timedelta(days=1)
-        parsed_from_date = yesterday
-        parsed_to_date = date.today()
+        from_d = date.today() - timedelta(days=1)
+        to_d = date.today()
     else:
-        parsed_from_date = _parse_date(from_date)
-        parsed_to_date = _parse_date(to_date)
+        from_d = _parse_date(from_date)
+        to_d = _parse_date(to_date)
 
     run(
         spark=spark,
-        table_ids=default_table_ids,
-        from_date=parsed_from_date,
-        to_date=parsed_to_date,
+        table_ids=ids,
+        from_date=from_d,
+        to_date=to_d,
         write_mode=write_mode,
+    )
+
+
+# CLI wrapper for local use only
+@app.command()
+def main(
+    from_date: Optional[str] = typer.Option(None, help="YYYY-MM-DD"),
+    to_date: Optional[str] = typer.Option(None, help="YYYY-MM-DD"),
+    write_mode: str = typer.Option("overwrite", help="overwrite or merge"),
+    table_ids: list[int] = typer.Option([], "--table-id", "-t"),
+):
+    run_pipeline(
+        from_date=from_date,
+        to_date=to_date,
+        write_mode=write_mode,
+        table_ids=table_ids,
     )
 
 

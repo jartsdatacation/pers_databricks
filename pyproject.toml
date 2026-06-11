@@ -4,10 +4,10 @@ version = "2026.0.0"
 description = ""
 authors = [{ name = "Datacation", email = "info@datacation.nl" }]
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
-    "databricks-connect>=18.2.1",
-    "databricks-sql-connector>=4.2.6",
+    "databricks-connect",
+    "databricks-sql-connector",
     "python-dotenv",
     "polars",
     "pyarrow",
@@ -26,7 +26,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.11"
 strict = true
 exclude = [
     "pers_databricks/typings",
@@ -34,4 +34,4 @@ exclude = [
 ]
 
 [project.scripts]
-run-silver-mock = "pers_databricks.cli.run_silver_mock:app"
+run-silver-mock = "pers_databricks.cli.run_silver_mock:run_pipeline"

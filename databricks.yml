@@ -2,12 +2,34 @@
 # The Databricks extension requires databricks.yml configuration file.
 # See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 
+# bundle:
+#   name: pers_databricks
+
+# targets:
+#   dev:
+#     mode: development
+#     default: true
+#     workspace:
+#       host: https://dbc-4a1c4a04-741b.cloud.databricks.com/?o=7474656153926720
 bundle:
   name: pers_databricks
 
-targets:
-  dev:
-    mode: development
-    default: true
-    workspace:
-      host: https://dbc-4a1c4a04-741b.cloud.databricks.com/?o=7474656153926720
+resources:
+  jobs:
+    silver_mock:
+      name: silver-mock
+      environments:
+        - environment_key: silver_mock_env
+          spec:
+            client: "3"
+            dependencies:
+              - ./dist/pers_databricks-2026.0.0-py3-none-any.whl
+      tasks:
+        - task_key: run_silver_mock
+          environment_key: silver_mock_env
+          python_wheel_task:
+            package_name: pers-databricks
+            entry_point: run-silver-mock
+            parameters:
+              - --write-mode
+              - overwrite

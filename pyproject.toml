@@ -6,11 +6,12 @@ authors = [{ name = "Datacation", email = "info@datacation.nl" }]
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "databricks-connect",
-    "databricks-sql-connector",
+    "databricks-connect>=18.2.1",
+    "databricks-sql-connector>=4.2.6",
     "python-dotenv",
     "polars",
     "pyarrow",
+    "typer",
 ]
 
 [build-system]
@@ -31,3 +32,6 @@ exclude = [
     "pers_databricks/typings",
     "notebooks"
 ]
+
+[project.scripts]
+run-silver-mock = "pers_databricks.cli.run_silver_mock:app"

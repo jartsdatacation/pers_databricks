@@ -76,8 +76,8 @@ def _build_replace_where(date_strings: list[str], column_name: str = "Date") -> 
 
 
 def _extract_numeric_suffix(column_name: str) -> F.Column:
-    return F.regexp_extract(F.col(column_name).cast("string"), r"(\d+)$", 1).cast(
-        "bigint"
+    return _cast_bigint_or_null(
+        F.regexp_extract(F.col(column_name).cast("string"), r"(\d+)$", 1)
     )
 
 
@@ -86,6 +86,13 @@ def _normalize_identifier(column_name: str) -> F.Column:
         F.col(column_name).cast("string"),
         r"^[\[\]\s]+|[\[\]\s]+$",
         "",
+    )
+
+
+def _cast_bigint_or_null(expr: F.Column) -> F.Column:
+    trimmed = F.trim(expr.cast("string"))
+    return F.when(trimmed == "", F.lit(None).cast("bigint")).otherwise(
+        trimmed.cast("bigint")
     )
 
 
@@ -102,7 +109,7 @@ def load_account_lookup(spark: SparkSession) -> DataFrame:
 
     return (
         df.select(
-            F.col("Id").cast("bigint").alias("AccountRowId"),
+            _cast_bigint_or_null(F.col("Id")).alias("AccountRowId"),
             F.col("Name").cast("string").alias("Customer"),
         )
         .dropna(subset=["AccountRowId"])
@@ -118,8 +125,8 @@ def load_house_lookup(spark: SparkSession) -> DataFrame:
         raise ValueError(f"{HOUSE_CSV_PATH} missing required columns: {missing}")
 
     ordered = df.select(
-        F.col("Id").cast("bigint").alias("HouseRowId"),
-        F.col("AccountId").cast("bigint").alias("HouseAccountRowId"),
+        _cast_bigint_or_null(F.col("Id")).alias("HouseRowId"),
+        _cast_bigint_or_null(F.col("AccountId")).alias("HouseAccountRowId"),
         F.col("Name").cast("string").alias("HouseName"),
         _extract_numeric_suffix("Name").alias("HouseNameOrdinalKey"),
         (
@@ -162,11 +169,11 @@ def load_site_lookup(spark: SparkSession) -> DataFrame:
         raise ValueError(f"{SITE_CSV_PATH} missing required columns: {missing}")
 
     ordered = df.select(
-        F.col("SiteId").cast("bigint").alias("SiteIdKey"),
+        _cast_bigint_or_null(F.col("SiteId")).alias("SiteIdKey"),
         F.col("Name").cast("string").alias("SiteName"),
         _extract_numeric_suffix("Name").alias("SiteNameOrdinalKey"),
         (
-            F.col("Id").cast("bigint")
+            _cast_bigint_or_null(F.col("Id"))
             if "Id" in df.columns
             else F.lit(None).cast("bigint")
         ).alias("SiteRowId"),
@@ -240,17 +247,17 @@ def build_dashboard_dataset(
         ).otherwise(house_id_set_expr)
 
     joined = (
-        telemetry_df.withColumn("SiteRowIdKey", house_id_set_expr.cast("bigint"))
+        telemetry_df.withColumn("SiteRowIdKey", _cast_bigint_or_null(house_id_set_expr))
         .join(site_lookup_df, F.col("SiteRowIdKey") == F.col("SiteRowId"), "left")
         .join(
             house_lookup_df,
-            (F.col("SiteId").cast("bigint") == F.col("HouseAccountRowId"))
+            (_cast_bigint_or_null(F.col("SiteId")) == F.col("HouseAccountRowId"))
             & (F.col("SiteOrdinal") == F.col("HouseOrdinal")),
             "left",
         )
         .join(
             account_lookup_df,
-            F.col("AccountId").cast("bigint") == F.col("AccountRowId"),
+            _cast_bigint_or_null(F.col("AccountId")) == F.col("AccountRowId"),
             "left",
         )
     )

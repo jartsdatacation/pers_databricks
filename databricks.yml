@@ -14,6 +14,14 @@
 bundle:
   name: pers_databricks
 
+variables:
+  silver_backfill_from_date:
+    description: Default start date for the silver backfill job.
+    default: "2026-06-11"
+  silver_backfill_to_date:
+    description: Default end date for the silver backfill job.
+    default: "2026-06-14"
+
 resources:
   jobs:
     silver_mock:
@@ -34,3 +42,38 @@ resources:
             parameters:
               - --write-mode
               - overwrite
+    silver_mock_backfill:
+      name: silver-mock-backfill
+      performance_target: STANDARD
+      environments:
+        - environment_key: silver_mock_backfill_env
+          spec:
+            client: "3"
+            dependencies:
+              - ./dist/pers_databricks-2026.0.0-py3-none-any.whl
+      tasks:
+        - task_key: run_silver_mock_backfill
+          environment_key: silver_mock_backfill_env
+          python_wheel_task:
+            package_name: pers-databricks
+            entry_point: run-silver-backfill
+            parameters:
+              - --from-date
+              - ${var.silver_backfill_from_date}
+              - --to-date
+              - ${var.silver_backfill_to_date}
+    gold:
+      name: gold
+      performance_target: STANDARD
+      environments:
+        - environment_key: gold_env
+          spec:
+            client: "3"
+            dependencies:
+              - ./dist/pers_databricks-2026.0.0-py3-none-any.whl
+      tasks:
+        - task_key: run_gold
+          environment_key: gold_env
+          python_wheel_task:
+            package_name: pers-databricks
+            entry_point: run-gold

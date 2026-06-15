@@ -35,3 +35,5 @@ exclude = [
 
 [project.scripts]
 run-silver-mock = "pers_databricks.cli.run_silver_mock:run_pipeline"
+run-silver-backfill = "pers_databricks.cli.run_silver_backfill:cli"
+run-gold = "pers_databricks.cli.run_gold:run_pipeline"

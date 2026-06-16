@@ -16,7 +16,9 @@ TABLE_IDS = [1, 2, 3, 5, 12, 13, 14]
 
 VOLUME_INPUT = "/Volumes/mock_vdb/default/mock/input"
 SILVER_OUTPUT = "/Volumes/mock_vdb/default/mock/output/delta"
-GOLD_OUTPUT = "/Volumes/mock_vdb/default/mock/output/gold"
+
+GOLD_BASE_PATH = "s3://databricks-pers-amzn-s3-demo/gold"
+
 SCHEMA_DIR = f"{VOLUME_INPUT}/schemas"
 
 ACCOUNT_CSV_PATH = f"{VOLUME_INPUT}/Results_Account_mock.csv"
@@ -42,6 +44,10 @@ LOG_SCHEMA = T.StructType(
         T.StructField("error_message", T.StringType(), True),
     ]
 )
+
+
+def gold_path(dataset: str) -> str:
+    return f"{GOLD_BASE_PATH}/{dataset}"
 
 
 def _read_json_spark(spark: SparkSession, path: str) -> dict:
@@ -643,7 +649,7 @@ def process_daily_stats_table(
     write_start = datetime.now(timezone.utc)
     write_gold_dataset(
         daily_stats_df,
-        f"{GOLD_OUTPUT}/dashboard_daily_stats_table_{table_id}",
+        f"{GOLD_BASE_PATH}/dashboard_daily_stats_table_{table_id}",
         partition_dates,
     )
     write_duration = (datetime.now(timezone.utc) - write_start).total_seconds()
@@ -692,7 +698,7 @@ def process_table_1_matrices(
         write_start = datetime.now(timezone.utc)
         write_gold_dataset(
             dataset_df,
-            f"{GOLD_OUTPUT}/{dataset_name}",
+            f"{GOLD_BASE_PATH}/{dataset_name}",
             partition_dates,
         )
         write_duration = (datetime.now(timezone.utc) - write_start).total_seconds()
@@ -715,11 +721,11 @@ def verify_outputs(spark: SparkSession, table_ids: list[int]) -> None:
     print("\n--- Verification ---")
     output_paths = [
         *(
-            f"{GOLD_OUTPUT}/dashboard_daily_stats_table_{table_id}"
+            f"{GOLD_BASE_PATH}/dashboard_daily_stats_table_{table_id}"
             for table_id in table_ids
         ),
-        f"{GOLD_OUTPUT}/table_1_matrix_long",
-        f"{GOLD_OUTPUT}/table_1_matrix_wide",
+        f"{GOLD_BASE_PATH}/table_1_matrix_long",
+        f"{GOLD_BASE_PATH}/table_1_matrix_wide",
     ]
 
     for path in output_paths:
@@ -749,7 +755,7 @@ def run(
     print(f"Run started : {datetime.now(timezone.utc).isoformat()}")
     print(f"Input root  : {VOLUME_INPUT}")
     print(f"Silver root : {SILVER_OUTPUT}")
-    print(f"Gold root   : {GOLD_OUTPUT}")
+    print(f"Gold base   : {GOLD_BASE_PATH}")
     print(f"Tables      : {table_ids}")
     print(f"From date   : {from_date}")
     print(f"To date     : {to_date}")
